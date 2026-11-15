@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -40,7 +41,9 @@ func run(args []string) {
 	defer j.Close()
 	handlers := engine.Registry{"write":writeHandler, "sha256":hashHandler, "verify":verifyHandler}
 	report, err := engine.Execute(context.Background(), w, engine.Config{Workers:*workers, RunID:randomID(), Journal:j}, handlers)
-	enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(report)
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(report)
 	if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
 }
 
@@ -53,16 +56,20 @@ func safePath(name string) (string, error) {
 
 func writeHandler(ctx context.Context, t plan.Task, _ map[string]engine.Result) (engine.Result, error) {
 	if err := ctx.Err(); err != nil { return engine.Result{}, err }
-	p, err := safePath(t.Input["path"]); if err != nil { return engine.Result{}, err }
+	p, err := safePath(t.Input["path"])
+	if err != nil { return engine.Result{}, err }
 	if err := os.MkdirAll(filepath.Dir(p), 0750); err != nil { return engine.Result{}, err }
 	if err := os.WriteFile(p, []byte(t.Input["content"]), 0600); err != nil { return engine.Result{}, err }
 	return engine.Result{Value:p}, nil
 }
 func hashHandler(ctx context.Context, t plan.Task, _ map[string]engine.Result) (engine.Result, error) {
 	if err := ctx.Err(); err != nil { return engine.Result{}, err }
-	p, err := safePath(t.Input["path"]); if err != nil { return engine.Result{}, err }
-	b, err := os.ReadFile(p); if err != nil { return engine.Result{}, err }
-	sum := sha256.Sum256(b); return engine.Result{Value:hex.EncodeToString(sum[:])}, nil
+	p, err := safePath(t.Input["path"])
+	if err != nil { return engine.Result{}, err }
+	b, err := os.ReadFile(p)
+	if err != nil { return engine.Result{}, err }
+	sum := sha256.Sum256(b)
+	return engine.Result{Value:hex.EncodeToString(sum[:])}, nil
 }
 func verifyHandler(ctx context.Context, t plan.Task, deps map[string]engine.Result) (engine.Result, error) {
 	if err := ctx.Err(); err != nil { return engine.Result{}, err }
@@ -70,5 +77,11 @@ func verifyHandler(ctx context.Context, t plan.Task, deps map[string]engine.Resu
 	if actual == "" || actual != t.Input["expected"] { return engine.Result{}, fmt.Errorf("verification failed: expected %q, got %q", t.Input["expected"], actual) }
 	return engine.Result{Value:"verified"}, nil
 }
-func randomID() string { b := make([]byte, 16); if _, err := os.ReadFile("/dev/urandom"); err == nil { /* ID fallback below is intentionally deterministic per process invocation. */ }; return fmt.Sprintf("%x", sha256.Sum256(append(b, byte(os.Getpid()))))[:16] }
-func check(err error) { if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) } }
+func randomID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil { panic(fmt.Errorf("generate run ID: %w", err)) }
+	return hex.EncodeToString(b)
+}
+func check(err error) {
+	if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+}

@@ -3,6 +3,6 @@
   "tasks": [
     {"id":"write-report","kind":"write","input":{"path":"out/report.txt","content":"VANTAGE execution evidence\n"}},
     {"id":"hash-report","kind":"sha256","needs":["write-report"],"input":{"path":"out/report.txt"}},
-    {"id":"verify-report","kind":"verify","needs":["hash-report"],"input":{"from":"hash-report","expected":"replace-with-the-generated-sha256"}}
+    {"id":"verify-report","kind":"verify","needs":["hash-report"],"input":{"from":"hash-report","expected":"faf871aac0a336bd3f3d5d3c16bd4e080f42045766a0192620689e392216b1b0"}}
   ]
 }
