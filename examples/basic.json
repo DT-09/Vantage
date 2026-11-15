@@ -1,0 +1,8 @@
+{
+  "name": "basic-evidence-workflow",
+  "tasks": [
+    {"id":"write-report","kind":"write","input":{"path":"out/report.txt","content":"VANTAGE execution evidence\n"}},
+    {"id":"hash-report","kind":"sha256","needs":["write-report"],"input":{"path":"out/report.txt"}},
+    {"id":"verify-report","kind":"verify","needs":["hash-report"],"input":{"from":"hash-report","expected":"replace-with-the-generated-sha256"}}
+  ]
+}
