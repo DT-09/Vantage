@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestExecuteRespectsDependencies(t *testing.T) {
 		{ID:"second",Kind:"echo",Needs:[]string{"first"}},
 	}}
 	h := Registry{"echo":func(_ context.Context, task plan.Task, deps map[string]Result) (Result,error) {
-		if task.ID == "second" && deps["first"].Value != "first" { t.Fatalf("dependency result unavailable: %#v", deps) }
+		if task.ID == "second" && deps["first"].Value != "first" { return Result{}, fmt.Errorf("dependency result unavailable: %#v", deps) }
 		return Result{Value:task.ID},nil
 	}}
 	report, err := Execute(context.Background(), workflow, Config{Workers:2,RunID:"test-run",Journal:j}, h)
