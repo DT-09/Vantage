@@ -76,18 +76,65 @@ func loadWorkflow(path string) (plan.Workflow, plan.Plan, error) {
 	if strings.TrimSpace(workflow.Name) == "" {
 		return plan.Workflow{}, plan.Plan{}, errors.New("workflow name cannot be empty")
 	}
+	if len(workflow.Tasks) == 0 {
+		return plan.Workflow{}, plan.Plan{}, errors.New("workflow must contain at least one task")
+	}
 	p, err := plan.Build(workflow)
 	if err != nil {
 		return plan.Workflow{}, plan.Plan{}, fmt.Errorf("invalid workflow: %w", err)
 	}
 	for _, task := range workflow.Tasks {
-		switch task.Kind {
-		case "write", "sha256", "verify":
-		default:
-			return plan.Workflow{}, plan.Plan{}, fmt.Errorf("task %q uses unsupported kind %q", task.ID, task.Kind)
+		if err := validateTask(task); err != nil {
+			return plan.Workflow{}, plan.Plan{}, err
 		}
 	}
 	return workflow, p, nil
+}
+
+func validateTask(task plan.Task) error {
+	allowed := map[string]bool{}
+	switch task.Kind {
+	case "write":
+		allowed = map[string]bool{"path": true, "content": true}
+		if _, ok := task.Input["content"]; !ok {
+			return fmt.Errorf("task %q: write requires a content input", task.ID)
+		}
+	case "sha256":
+		allowed = map[string]bool{"path": true}
+	case "verify":
+		allowed = map[string]bool{"from": true, "expected": true}
+		from := task.Input["from"]
+		if from == "" {
+			return fmt.Errorf("task %q: verify requires a from input", task.ID)
+		}
+		found := false
+		for _, dependency := range task.Needs {
+			if dependency == from {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("task %q: verify input from %q must name a direct dependency", task.ID, from)
+		}
+		expected, err := hex.DecodeString(task.Input["expected"])
+		if err != nil || len(expected) != sha256.Size {
+			return fmt.Errorf("task %q: verify expected must be a 64-character SHA-256 hex digest", task.ID)
+		}
+	default:
+		return fmt.Errorf("task %q uses unsupported kind %q", task.ID, task.Kind)
+	}
+	for key := range task.Input {
+		if !allowed[key] {
+			return fmt.Errorf("task %q: unsupported input %q for kind %q", task.ID, key, task.Kind)
+		}
+	}
+	if task.Kind == "write" || task.Kind == "sha256" {
+		if _, err := safePath(task.Input["path"]); err != nil {
+			return fmt.Errorf("task %q: %w", task.ID, err)
+		}
+	}
+	return nil
 }
 
 func validate(args []string, showPlan bool) error {
