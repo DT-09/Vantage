@@ -49,8 +49,36 @@ func TestLoadWorkflowRejectsUnsupportedTaskKind(t *testing.T) {
 }
 
 func TestLoadWorkflowRejectsEmptyName(t *testing.T) {
-	path := writeWorkflow(t, `{"tasks":[]}`)
+	path := writeWorkflow(t, `{"tasks":[{"id":"one","kind":"write","input":{"path":"out.txt","content":"ok"}}]}`)
 	if _, _, err := loadWorkflow(path); err == nil || !strings.Contains(err.Error(), "name cannot be empty") {
 		t.Fatalf("expected empty-name error, got %v", err)
+	}
+}
+
+func TestLoadWorkflowRejectsEmptyTaskList(t *testing.T) {
+	path := writeWorkflow(t, `{"name":"sample","tasks":[]}`)
+	if _, _, err := loadWorkflow(path); err == nil || !strings.Contains(err.Error(), "at least one task") {
+		t.Fatalf("expected empty-task error, got %v", err)
+	}
+}
+
+func TestLoadWorkflowRejectsPathTraversal(t *testing.T) {
+	path := writeWorkflow(t, `{"name":"sample","tasks":[{"id":"one","kind":"write","input":{"path":"../outside.txt","content":"no"}}]}`)
+	if _, _, err := loadWorkflow(path); err == nil || !strings.Contains(err.Error(), "path escapes workspace") {
+		t.Fatalf("expected path error, got %v", err)
+	}
+}
+
+func TestLoadWorkflowRejectsUnknownTaskInput(t *testing.T) {
+	path := writeWorkflow(t, `{"name":"sample","tasks":[{"id":"one","kind":"sha256","input":{"path":"in.txt","shell":"true"}}]}`)
+	if _, _, err := loadWorkflow(path); err == nil || !strings.Contains(err.Error(), "unsupported input") {
+		t.Fatalf("expected unsupported-input error, got %v", err)
+	}
+}
+
+func TestLoadWorkflowRequiresVerifyDependencyAndDigest(t *testing.T) {
+	path := writeWorkflow(t, `{"name":"sample","tasks":[{"id":"verify","kind":"verify","input":{"from":"hash","expected":"bad"}}]}`)
+	if _, _, err := loadWorkflow(path); err == nil || !strings.Contains(err.Error(), "direct dependency") {
+		t.Fatalf("expected verify dependency error, got %v", err)
 	}
 }
