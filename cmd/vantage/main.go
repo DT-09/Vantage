@@ -80,6 +80,13 @@ func loadWorkflow(path string) (plan.Workflow, plan.Plan, error) {
 	if err != nil {
 		return plan.Workflow{}, plan.Plan{}, fmt.Errorf("invalid workflow: %w", err)
 	}
+	for _, task := range workflow.Tasks {
+		switch task.Kind {
+		case "write", "sha256", "verify":
+		default:
+			return plan.Workflow{}, plan.Plan{}, fmt.Errorf("task %q uses unsupported kind %q", task.ID, task.Kind)
+		}
+	}
 	return workflow, p, nil
 }
 
