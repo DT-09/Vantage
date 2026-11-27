@@ -1,0 +1,4 @@
+invoice_id,customer_id,subscription_id,currency,amount_due,amount_paid,status
+in_001,cus_001,sub_001,USD,120.00,120.00,paid
+in_002,cus_002,sub_002,USD,250.00,200.00,paid
+in_003,cus_003,sub_003,EUR,80.00,80.00,paid
