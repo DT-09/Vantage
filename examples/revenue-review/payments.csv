@@ -1,0 +1,5 @@
+payment_id,invoice_id,currency,amount,status
+pi_001,in_001,USD,120.00,succeeded
+pi_002,in_002,USD,175.00,succeeded
+pi_003,in_003,EUR,80.00,succeeded
+pi_004,in_missing,USD,25.00,succeeded
